@@ -1,0 +1,10 @@
+services:
+  transcriber:
+    build: .
+    ports:
+      - "8081:8081"
+    environment:
+      - FLASK_ENV=development
+    volumes:
+      - ./transcriptions:/app/transcriptions
+    restart: unless-stopped 

@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Transcriber - Real-time Transcription</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .card-header h2 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .input-section {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .model-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .model-option {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .model-option input[type="radio"] {
+            display: none;
+        }
+
+        .model-option label {
+            display: block;
+            padding: 12px;
+            text-align: center;
+            background: #f8f9fa;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .model-option input[type="radio"]:checked + label {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .transcribe-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .transcribe-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .transcribe-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress-section {
+            padding: 30px;
+            border-top: 1px solid #e1e5e9;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e1e5e9;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .status-messages {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .status-message {
+            padding: 8px 0;
+            border-bottom: 1px solid #e1e5e9;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .status-message:last-child {
+            border-bottom: none;
+        }
+
+        .status-message.success {
+            color: #28a745;
+        }
+
+        .status-message.error {
+            color: #dc3545;
+        }
+
+        .video-section {
+            padding: 30px;
+            border-top: 1px solid #e1e5e9;
+            display: none;
+        }
+
+        .video-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .video-player {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .video-frame {
+            width: 100%;
+            height: 315px;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .video-info {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .video-details h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.3rem;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .video-details p {
+            margin: 8px 0;
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .transcription-section {
+            padding: 30px;
+            border-top: 1px solid #e1e5e9;
+            display: none;
+        }
+
+        .transcription-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .transcription-text {
+            background: #f8f9fa;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-size: 16px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #28a745;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .typing-effect {
+            border-right: 2px solid #667eea;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { border-color: transparent; }
+            51%, 100% { border-color: #667eea; }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #c3e6cb;
+        }
+
+        .streaming-transcription {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .transcription-segment {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: white;
+            border-radius: 6px;
+            border-left: 3px solid #28a745;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .segment-timestamp {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .segment-text {
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .segment-progress {
+            font-size: 0.7rem;
+            color: #007bff;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            .model-selector {
+                flex-direction: column;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .video-container {
+                flex-direction: column;
+            }
+
+            .video-frame {
+                height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-microphone"></i> YouTube Transcriber</h1>
+            <p>Real-time transcription with Whisper AI</p>
+        </div>
+
+        <div class="main-card">
+            <div class="card-header">
+                <h2>Start Transcription</h2>
+                <p>Enter a YouTube URL and watch the magic happen in real-time</p>
+            </div>
+
+            <div id="video-section" class="video-section">
+                <div class="video-container">
+                    <div class="video-player">
+                        <iframe id="video-frame" class="video-frame" 
+                                src="" 
+                                title="YouTube video player" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen>
+                        </iframe>
+                    </div>
+                    <div class="video-info">
+                        <div class="video-details">
+                            <h3 id="video-title">Video Title</h3>
+                            <p id="video-uploader">Uploader</p>
+                            <p id="video-duration">Duration</p>
+                            <p id="video-views">Views</p>
+                            <p id="video-description">Description</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-section">
+                <div class="form-group">
+                    <label for="youtube-url">YouTube URL</label>
+                    <input type="url" id="youtube-url" class="url-input" 
+                           placeholder="https://www.youtube.com/watch?v=..." required>
+                </div>
+
+                <div class="form-group">
+                    <label>Whisper Model Size</label>
+                    <div class="model-selector">
+                        <div class="model-option">
+                            <input type="radio" id="tiny" name="model" value="tiny">
+                            <label for="tiny">Tiny (Fast)</label>
+                        </div>
+                        <div class="model-option">
+                            <input type="radio" id="base" name="model" value="base" checked>
+                            <label for="base">Base (Balanced)</label>
+                        </div>
+                        <div class="model-option">
+                            <input type="radio" id="small" name="model" value="small">
+                            <label for="small">Small (Better)</label>
+                        </div>
+                        <div class="model-option">
+                            <input type="radio" id="medium" name="model" value="medium">
+                            <label for="medium">Medium (Best)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="transcribe-btn" class="transcribe-btn">
+                    <i class="fas fa-play"></i>
+                    Start Transcription
+                </button>
+            </div>
+
+            <div id="progress-section" class="progress-section">
+                <h3><i class="fas fa-spinner fa-spin"></i> Transcription in Progress</h3>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <div id="status-messages" class="status-messages"></div>
+            </div>
+
+            <div id="transcription-section" class="transcription-section">
+                <div class="transcription-header">
+                    <h3><span class="live-indicator"></span>Live Transcription</h3>
+                    <div class="action-buttons">
+                        <button id="copy-btn" class="btn btn-secondary">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                        <button id="download-btn" class="btn btn-success">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
+                </div>
+                <div id="transcription-text" class="transcription-text"></div>
+                <div id="streaming-transcription" class="streaming-transcription"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let isTranscribing = false;
+        let currentTranscription = '';
+        let currentVideoId = '';
+
+        // DOM elements
+        const urlInput = document.getElementById('youtube-url');
+        const transcribeBtn = document.getElementById('transcribe-btn');
+        const progressSection = document.getElementById('progress-section');
+        const transcriptionSection = document.getElementById('transcription-section');
+        const videoSection = document.getElementById('video-section');
+        const progressFill = document.getElementById('progress-fill');
+        const statusMessages = document.getElementById('status-messages');
+        const transcriptionText = document.getElementById('transcription-text');
+        const streamingTranscription = document.getElementById('streaming-transcription');
+        const copyBtn = document.getElementById('copy-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const videoFrame = document.getElementById('video-frame');
+        const videoTitle = document.getElementById('video-title');
+        const videoUploader = document.getElementById('video-uploader');
+        const videoDuration = document.getElementById('video-duration');
+        const videoViews = document.getElementById('video-views');
+        const videoDescription = document.getElementById('video-description');
+
+        // Event listeners
+        transcribeBtn.addEventListener('click', startTranscription);
+        copyBtn.addEventListener('click', copyTranscription);
+        downloadBtn.addEventListener('click', downloadTranscription);
+
+        function startTranscription() {
+            const url = urlInput.value.trim();
+            if (!url) {
+                alert('Please enter a YouTube URL');
+                return;
+            }
+
+            const modelSize = document.querySelector('input[name="model"]:checked').value;
+            const clientId = Date.now().toString();
+            
+            console.log('[DEBUG] Starting transcription with:', { url, modelSize, clientId });
+            
+            isTranscribing = true;
+            updateTranscribeButton();
+            showProgressSection();
+            clearTranscription();
+            hideVideoSection();
+            
+            // Start transcription via API
+            console.log('[DEBUG] Making API call to start transcription...');
+            fetch('/api/start-transcription', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    url: url,
+                    model_size: modelSize,
+                    client_id: clientId
+                })
+            })
+            .then(response => {
+                console.log('[DEBUG] API response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('[DEBUG] API response data:', data);
+                if (data.success) {
+                    console.log('[DEBUG] API call successful, connecting to SSE stream...');
+                    // Connect to SSE stream
+                    connectSSE(data.stream_url);
+                } else {
+                    console.error('[DEBUG] API call failed:', data);
+                    addStatusMessage('Failed to start transcription', 'error');
+                    isTranscribing = false;
+                    updateTranscribeButton();
+                }
+            })
+            .catch(error => {
+                console.error('[DEBUG] API call error:', error);
+                addStatusMessage('Error starting transcription: ' + error.message, 'error');
+                isTranscribing = false;
+                updateTranscribeButton();
+            });
+        }
+
+        function handleSSEMessage(message) {
+            console.log('[DEBUG] Handling SSE message:', message);
+            switch(message.type) {
+                case 'status':
+                    console.log('[DEBUG] Processing status message:', message.message);
+                    addStatusMessage(message.message, 'success');
+                    break;
+                case 'progress':
+                    console.log('[DEBUG] Processing progress message:', message.message);
+                    addStatusMessage(message.message, 'success');
+                    updateProgress(message.message);
+                    break;
+                case 'video_info':
+                    console.log('[DEBUG] Processing video info:', message.data);
+                    showVideoPreview(message.data);
+                    break;
+                case 'transcription_segment':
+                    console.log('[DEBUG] Processing transcription segment:', message);
+                    addTranscriptionSegment(message);
+                    break;
+                case 'transcription_complete':
+                    console.log('[DEBUG] Processing transcription complete:', message.data);
+                    addStatusMessage('Transcription completed!', 'success');
+                    showTranscription(message.data.transcription);
+                    isTranscribing = false;
+                    updateTranscribeButton();
+                    if (eventSource) {
+                        eventSource.close();
+                    }
+                    break;
+                case 'error':
+                    console.log('[DEBUG] Processing error message:', message.message);
+                    addStatusMessage(message.message, 'error');
+                    isTranscribing = false;
+                    updateTranscribeButton();
+                    if (eventSource) {
+                        eventSource.close();
+                    }
+                    break;
+                case 'keepalive':
+                    console.log('[DEBUG] Received keepalive message');
+                    // Ignore keepalive messages
+                    break;
+                default:
+                    console.log('[DEBUG] Unknown message type:', message.type);
+            }
+        }
+
+        // SSE connection for streaming transcription
+        function connectSSE(streamUrl) {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            console.log('[DEBUG] Connecting to SSE stream:', streamUrl);
+            eventSource = new EventSource(streamUrl);
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    console.log('[DEBUG] Received SSE message:', event.data);
+                    const message = JSON.parse(event.data);
+                    console.log('[DEBUG] Parsed message:', message);
+                    handleSSEMessage(message);
+                } catch (e) {
+                    console.error('[DEBUG] Error parsing SSE message:', e);
+                }
+            };
+            
+            eventSource.onerror = function(error) {
+                console.error('[DEBUG] SSE error:', error);
+                eventSource.close();
+            };
+            
+            eventSource.onopen = function(event) {
+                console.log('[DEBUG] SSE stream connected successfully');
+            };
+        }
+
+        function updateTranscribeButton() {
+            if (isTranscribing) {
+                transcribeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transcribing...';
+                transcribeBtn.disabled = true;
+            } else {
+                transcribeBtn.innerHTML = '<i class="fas fa-play"></i> Start Transcription';
+                transcribeBtn.disabled = false;
+            }
+        }
+
+        function showProgressSection() {
+            progressSection.style.display = 'block';
+            transcriptionSection.style.display = 'none';
+            statusMessages.innerHTML = '';
+        }
+
+        function addStatusMessage(message, type = '') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status-message ${type}`;
+            messageDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            statusMessages.appendChild(messageDiv);
+            statusMessages.scrollTop = statusMessages.scrollHeight;
+        }
+
+        function updateProgress(message) {
+            // Simple progress simulation based on message content
+            let progress = 0;
+            if (message.includes('Downloading')) progress = 25;
+            else if (message.includes('Converting')) progress = 50;
+            else if (message.includes('Transcribing')) progress = 75;
+            else if (message.includes('Loading Whisper')) progress = 60;
+            
+            progressFill.style.width = `${progress}%`;
+        }
+
+        function showTranscription(text) {
+            currentTranscription = text;
+            transcriptionSection.style.display = 'block';
+            transcriptionText.textContent = text;
+            transcriptionText.scrollTop = transcriptionText.scrollHeight;
+        }
+
+        function clearTranscription() {
+            currentTranscription = '';
+            transcriptionText.textContent = '';
+            streamingTranscription.innerHTML = '';
+        }
+
+        function showVideoPreview(videoInfo) {
+            console.log('[DEBUG] showVideoPreview called with:', videoInfo);
+            
+            // Extract video ID from URL
+            const url = urlInput.value.trim();
+            const videoId = extractVideoId(url);
+            currentVideoId = videoId;
+            
+            console.log('[DEBUG] Extracted video ID:', videoId);
+            
+            if (videoId) {
+                // Set embedded video player
+                const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+                console.log('[DEBUG] Setting video frame src to:', embedUrl);
+                videoFrame.src = embedUrl;
+            }
+            
+            // Update video info
+            videoTitle.textContent = videoInfo.title || 'Unknown Title';
+            videoUploader.textContent = `By: ${videoInfo.uploader || 'Unknown'}`;
+            
+            const duration = videoInfo.duration ? formatDuration(videoInfo.duration) : 'Unknown';
+            videoDuration.textContent = `Duration: ${duration}`;
+            
+            const views = videoInfo.view_count ? formatViews(videoInfo.view_count) : 'Unknown';
+            videoViews.textContent = `Views: ${views}`;
+            
+            // Truncate description if too long
+            const description = videoInfo.description || 'No description available';
+            videoDescription.textContent = description.length > 200 ? 
+                description.substring(0, 200) + '...' : description;
+            
+            console.log('[DEBUG] Showing video section');
+            videoSection.style.display = 'block';
+        }
+
+        function hideVideoSection() {
+            videoSection.style.display = 'none';
+            videoFrame.src = '';
+        }
+
+        function extractVideoId(url) {
+            const regex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/;
+            const match = url.match(regex);
+            return match ? match[1] : null;
+        }
+
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function formatViews(views) {
+            if (views >= 1000000) {
+                return `${(views / 1000000).toFixed(1)}M`;
+            } else if (views >= 1000) {
+                return `${(views / 1000).toFixed(1)}K`;
+            } else {
+                return views.toString();
+            }
+        }
+
+        function addTranscriptionSegment(segment) {
+            console.log('[DEBUG] addTranscriptionSegment called with:', segment);
+            
+            const segmentDiv = document.createElement('div');
+            segmentDiv.className = 'transcription-segment';
+            
+            const timestamp = document.createElement('div');
+            timestamp.className = 'segment-timestamp';
+            timestamp.textContent = `${formatTime(segment.start)} - ${formatTime(segment.end)}`;
+            
+            const text = document.createElement('div');
+            text.className = 'segment-text';
+            text.textContent = segment.text;
+            
+            // Add progress indicator if available
+            if (segment.segment_number && segment.total_segments) {
+                const progress = document.createElement('div');
+                progress.className = 'segment-progress';
+                progress.textContent = `Segment ${segment.segment_number}/${segment.total_segments}`;
+                segmentDiv.appendChild(progress);
+            }
+            
+            segmentDiv.appendChild(timestamp);
+            segmentDiv.appendChild(text);
+            streamingTranscription.appendChild(segmentDiv);
+            
+            // Auto-scroll to bottom
+            streamingTranscription.scrollTop = streamingTranscription.scrollHeight;
+            
+            // Add a subtle highlight animation
+            segmentDiv.style.animation = 'fadeIn 0.5s ease-in';
+            
+            console.log('[DEBUG] Added transcription segment to UI');
+        }
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function copyTranscription() {
+            if (currentTranscription) {
+                navigator.clipboard.writeText(currentTranscription).then(() => {
+                    addStatusMessage('Transcription copied to clipboard', 'success');
+                });
+            }
+        }
+
+        function downloadTranscription() {
+            if (currentTranscription) {
+                const blob = new Blob([currentTranscription], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `transcription_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        // Enter key to start transcription
+        urlInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !isTranscribing) {
+                startTranscription();
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Scripts
+setup.sh
+run_app.sh
+transcriber_cli.py
+transcriber_app.py
+
+# Environment files
+environment.yml
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Transcriptions directory
+transcriptions/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env 
