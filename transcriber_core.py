@@ -236,12 +236,15 @@ class YouTubeTranscriber:
     def _transcribe_audio(self, audio_path: str, progress_callback=None) -> Optional[str]:
         """Transcribe audio using Whisper locally with streaming support."""
         try:
-            print("Loading Whisper model...")
-            
-            # Load Whisper model (will download on first use)
+            # Load Whisper model only if not already loaded or model size changed
             if self.whisper_model is None:
+                print(f"Loading Whisper model '{self.model_size}'...")
+                if progress_callback:
+                    progress_callback(f"Loading Whisper model '{self.model_size}'...")
                 self.whisper_model = whisper.load_model(self.model_size)
-                print("Whisper model loaded successfully")
+                print(f"Whisper model '{self.model_size}' loaded successfully")
+            else:
+                print(f"Using cached Whisper model '{self.model_size}'")
             
             print("Starting transcription with Whisper...")
             

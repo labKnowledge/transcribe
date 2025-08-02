@@ -366,6 +366,19 @@
             overflow-y: auto;
         }
 
+        .streaming-header {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e1e5e9;
+        }
+
+        .streaming-header h4 {
+            margin: 0;
+            color: #667eea;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
         .transcription-segment {
             margin-bottom: 10px;
             padding: 8px;
@@ -515,8 +528,12 @@
                         </button>
                     </div>
                 </div>
+                <div id="streaming-transcription" class="streaming-transcription">
+                    <div class="streaming-header">
+                        <h4><i class="fas fa-broadcast-tower"></i> Real-time Segments</h4>
+                    </div>
+                </div>
                 <div id="transcription-text" class="transcription-text"></div>
-                <div id="streaming-transcription" class="streaming-transcription"></div>
             </div>
         </div>
     </div>
@@ -730,7 +747,11 @@
         function clearTranscription() {
             currentTranscription = '';
             transcriptionText.textContent = '';
-            streamingTranscription.innerHTML = '';
+            streamingTranscription.innerHTML = `
+                <div class="streaming-header">
+                    <h4><i class="fas fa-broadcast-tower"></i> Real-time Segments</h4>
+                </div>
+            `;
         }
 
         function showVideoPreview(videoInfo) {
@@ -805,6 +826,9 @@
         function addTranscriptionSegment(segment) {
             console.log('[DEBUG] addTranscriptionSegment called with:', segment);
             
+            // Show transcription section immediately on first segment
+            transcriptionSection.style.display = 'block';
+            
             const segmentDiv = document.createElement('div');
             segmentDiv.className = 'transcription-segment';
             
@@ -828,8 +852,15 @@
             segmentDiv.appendChild(text);
             streamingTranscription.appendChild(segmentDiv);
             
-            // Auto-scroll to bottom
+            // Update live transcription accumulator
+            currentTranscription += segment.text + ' ';
+            
+            // Update final transcription text in real-time
+            transcriptionText.textContent = currentTranscription.trim();
+            
+            // Auto-scroll both containers to bottom
             streamingTranscription.scrollTop = streamingTranscription.scrollHeight;
+            transcriptionText.scrollTop = transcriptionText.scrollHeight;
             
             // Add a subtle highlight animation
             segmentDiv.style.animation = 'fadeIn 0.5s ease-in';
@@ -844,16 +875,23 @@
         }
 
         function copyTranscription() {
-            if (currentTranscription) {
-                navigator.clipboard.writeText(currentTranscription).then(() => {
+            const textToCopy = currentTranscription.trim() || transcriptionText.textContent;
+            if (textToCopy) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
                     addStatusMessage('Transcription copied to clipboard', 'success');
+                }).catch(err => {
+                    console.error('Failed to copy transcription:', err);
+                    addStatusMessage('Failed to copy transcription', 'error');
                 });
+            } else {
+                addStatusMessage('No transcription to copy', 'error');
             }
         }
 
         function downloadTranscription() {
-            if (currentTranscription) {
-                const blob = new Blob([currentTranscription], { type: 'text/plain' });
+            const textToDownload = currentTranscription.trim() || transcriptionText.textContent;
+            if (textToDownload) {
+                const blob = new Blob([textToDownload], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -862,6 +900,9 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                addStatusMessage('Transcription downloaded', 'success');
+            } else {
+                addStatusMessage('No transcription to download', 'error');
             }
         }
 

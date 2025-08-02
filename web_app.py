@@ -18,9 +18,9 @@ templates = Jinja2Templates(directory="templates")
 # Global transcriber instance
 transcriber = YouTubeTranscriber()
 
-# Store active SSE streams
+# Store active SSE streams and transcription status
 active_sse_streams: Dict[str, asyncio.Queue] = {}
-
+transcription_status: Dict[str, bool] = {}
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -41,9 +41,9 @@ async def stream_transcription(client_id: str):
         try:
             while True:
                 try:
-                    # Wait for message with timeout
+                    # Wait for message with timeout (increased for transcription processing)
                     print(f"[DEBUG] Waiting for message from queue for client {client_id}")
-                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    message = await asyncio.wait_for(queue.get(), timeout=120.0)
                     print(f"[DEBUG] Received message for client {client_id}: {message}")
                     
                     # Format SSE message
@@ -68,10 +68,9 @@ async def stream_transcription(client_id: str):
             error_message = {'type': 'error', 'message': str(e)}
             yield f"data: {json.dumps(error_message)}\n\n"
         finally:
-            # Clean up
-            if client_id in active_sse_streams:
-                del active_sse_streams[client_id]
-                print(f"[DEBUG] Cleaned up SSE queue for client {client_id}")
+            # Clean up - but only if the transcription is actually complete
+            # Don't clean up on timeout or client disconnect, let the transcription thread finish
+            print(f"[DEBUG] SSE stream ending for client {client_id}, but keeping queue for transcription thread")
     
     return StreamingResponse(
         event_generator(),
@@ -99,6 +98,7 @@ async def start_transcription(request: Request):
         # Create SSE queue BEFORE starting transcription
         if client_id not in active_sse_streams:
             active_sse_streams[client_id] = asyncio.Queue()
+            transcription_status[client_id] = True  # Mark transcription as active
             print(f"[DEBUG] Created SSE queue for client {client_id} before starting transcription")
         
         # Start transcription in background thread
@@ -136,8 +136,20 @@ def run_transcription(client_id: str, url: str, model_size: str):
                 print(f"[DEBUG] Progress callback called: {type(message)} - {message}")
                 if client_id in active_sse_streams:
                     queue = active_sse_streams[client_id]
+                    
+                    # Format message based on type
+                    if isinstance(message, dict):
+                        # Already formatted message (transcription segments)
+                        formatted_message = message
+                    elif isinstance(message, str):
+                        # Simple status message
+                        formatted_message = {"type": "status", "message": message}
+                    else:
+                        # Fallback for other types
+                        formatted_message = {"type": "status", "message": str(message)}
+                    
                     asyncio.run_coroutine_threadsafe(
-                        queue.put(message),
+                        queue.put(formatted_message),
                         loop
                     )
                     print(f"[DEBUG] Message sent to SSE queue for client {client_id}")
@@ -161,8 +173,7 @@ def run_transcription(client_id: str, url: str, model_size: str):
         
         # Download audio first to get video info
         print(f"[DEBUG] Starting audio download...")
-        if progress_callback:
-            progress_callback("Downloading audio...")
+        progress_callback("Downloading audio...")
         
         audio_path = transcriber._download_audio(url)
         if not audio_path:
@@ -201,8 +212,7 @@ def run_transcription(client_id: str, url: str, model_size: str):
         
         # Process audio
         print(f"[DEBUG] Starting audio processing...")
-        if progress_callback:
-            progress_callback("Processing audio...")
+        progress_callback("Processing audio...")
         
         processed_audio_path = transcriber._convert_to_wav(audio_path)
         if not processed_audio_path:
@@ -271,7 +281,25 @@ def run_transcription(client_id: str, url: str, model_size: str):
     
     finally:
         print(f"[DEBUG] Transcription thread ending for client {client_id}")
-        loop.close()
+        # Mark transcription as complete and clean up
+        transcription_status[client_id] = False
+        if client_id in active_sse_streams:
+            del active_sse_streams[client_id]
+            print(f"[DEBUG] Cleaned up SSE queue for client {client_id}")
+        if client_id in transcription_status:
+            del transcription_status[client_id]
+        
+        # Don't close the loop immediately, let pending tasks finish
+        try:
+            # Wait a bit for any pending coroutines to complete
+            pending = asyncio.all_tasks(loop)
+            if pending:
+                print(f"[DEBUG] Waiting for {len(pending)} pending tasks to complete")
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        except Exception as e:
+            print(f"[DEBUG] Error waiting for pending tasks: {e}")
+        finally:
+            loop.close()
 
 @app.post("/api/save-transcription")
 async def save_transcription(request: Request):
